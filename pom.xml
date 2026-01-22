@@ -7,4 +7,20 @@
   <groupId>com.ecom.user</groupId>
   <artifactId>ecom-user-api</artifactId>
   <version>1.0.0</version>
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+</properties>
+
+<build>
+    <finalName>ecom-user-api</finalName>
+</build>
+
+<distributionManagement>
+    <repository>
+        <id>nexus-releases</id>
+        <url>http://localhost:8081/repository/ecom-maven-releases/</url>
+    </repository>
+</distributionManagement>
+
 </project>
