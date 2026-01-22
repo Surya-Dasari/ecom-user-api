@@ -1,128 +1,97 @@
 pipeline {
-  agent { label 'maven' }
+    agent { label 'maven' }
 
-  environment {
-    APP_NAME      = 'ecom-user-api'
-    NEXUS_URL     = 'http://localhost:8081'
-    NEXUS_REPO    = 'ecom-maven-releases'
-    DOCKER_IMAGE  = 'suryadasari/ecom-user-api'
-  }
+    environment {
+        APP_NAME   = "ecom-user-api"
+        IMAGE_NAME = "suryadasari/ecom-user-api"
+        IMAGE_TAG  = "${BRANCH_NAME}-${GIT_COMMIT.take(7)}"
 
-  stages {
-
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+        NEXUS_URL  = "http://host.docker.internal:8081"
+        NEXUS_REPO = "ecom-maven-releases"
+        GROUP_ID   = "com.ecom.user"
+        VERSION    = "1.0.0"
     }
 
-    stage('Build & Unit Test') {
-      steps {
-        sh 'mvn clean verify'
-      }
-    }
+    stages {
 
-    stage('Branch Classification') {
-      steps {
-        script {
-          if (env.BRANCH_NAME == 'develop') {
-            env.TARGET_ENV = 'dev'
-          } else if (env.BRANCH_NAME.startsWith('release/')) {
-            env.TARGET_ENV = 'qa'
-          } else if (env.BRANCH_NAME == 'main') {
-            env.TARGET_ENV = 'prod'
-          } else {
-            env.TARGET_ENV = 'none'
-          }
-          echo "Target environment: ${env.TARGET_ENV}"
-        }
-      }
-    }
-
-    /* =========================
-       PUBLISH ARTIFACT TO NEXUS
-       ========================= */
-    stage('Publish Artifact to Nexus') {
-      when {
-        expression { env.TARGET_ENV != 'none' }
-      }
-      steps {
-        withVault([vaultSecrets: [
-          [path: 'secret/jenkins/nexus', secretValues: [
-            [envVar: 'NEXUS_USER', vaultKey: 'username'],
-            [envVar: 'NEXUS_PASS', vaultKey: 'password']
-          ]]
-        ]]) {
-          sh """
-            mvn deploy \
-              -Dnexus.username=$NEXUS_USER \
-              -Dnexus.password=$NEXUS_PASS
-          """
-        }
-      }
-    }
-
-    /* ======================================
-       DOCKER BUILD (ARTIFACT PULLED FROM NEXUS)
-       ====================================== */
-    stage('Docker Build from Nexus Artifact') {
-      when {
-        expression { env.TARGET_ENV != 'none' }
-      }
-      steps {
-        script {
-          env.IMAGE_TAG = "${env.TARGET_ENV}-${env.GIT_COMMIT.take(7)}"
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
         }
 
-        withVault([vaultSecrets: [
-          [path: 'secret/jenkins/nexus', secretValues: [
-            [envVar: 'NEXUS_USER', vaultKey: 'username'],
-            [envVar: 'NEXUS_PASS', vaultKey: 'password']
-          ]]
-        ]]) {
-          sh """
-            docker build \
-              --build-arg NEXUS_URL=${NEXUS_URL} \
-              --build-arg NEXUS_REPO=${NEXUS_REPO} \
-              --build-arg NEXUS_USER=$NEXUS_USER \
-              --build-arg NEXUS_PASS=$NEXUS_PASS \
-              --build-arg APP_NAME=${APP_NAME} \
-              -t ${DOCKER_IMAGE}:${IMAGE_TAG} .
-          """
+        stage('Build & Test') {
+            steps {
+                sh 'mvn clean test package'
+            }
         }
-      }
+
+        stage('Publish Artifact to Nexus') {
+            when { branch 'develop' }
+            steps {
+                withVault([vaultSecrets: [[
+                    path: 'secret/jenkins/nexus',
+                    secretValues: [
+                        [envVar: 'NEXUS_USER', vaultKey: 'username'],
+                        [envVar: 'NEXUS_PASS', vaultKey: 'password']
+                    ]
+                ]]]) {
+                    sh 'mvn deploy'
+                }
+            }
+        }
+
+        stage('Docker Build (from Nexus)') {
+            when { branch 'develop' }
+            steps {
+                withVault([vaultSecrets: [[
+                    path: 'secret/jenkins/nexus',
+                    secretValues: [
+                        [envVar: 'NEXUS_USER', vaultKey: 'username'],
+                        [envVar: 'NEXUS_PASS', vaultKey: 'password']
+                    ]
+                ]]]) {
+                    sh '''
+                      docker build \
+                        --build-arg NEXUS_URL=${NEXUS_URL} \
+                        --build-arg NEXUS_REPO=${NEXUS_REPO} \
+                        --build-arg NEXUS_USER=$NEXUS_USER \
+                        --build-arg NEXUS_PASS=$NEXUS_PASS \
+                        --build-arg GROUP_ID=${GROUP_ID} \
+                        --build-arg ARTIFACT_ID=${APP_NAME} \
+                        --build-arg VERSION=${VERSION} \
+                        -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    '''
+                }
+            }
+        }
+
+        stage('Push Image to Docker Hub') {
+            when { branch 'develop' }
+            steps {
+                withVault([vaultSecrets: [[
+                    path: 'secret/jenkins/dockerhub',
+                    secretValues: [
+                        [envVar: 'DOCKER_USER', vaultKey: 'username'],
+                        [envVar: 'DOCKER_PASS', vaultKey: 'password']
+                    ]
+                ]]]) {
+                    sh '''
+                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                      docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                    '''
+                }
+            }
+        }
     }
 
-    /* ======================
-       PUSH IMAGE TO DOCKER HUB
-       ====================== */
-    stage('Push Image to Docker Hub') {
-      when {
-        expression { env.TARGET_ENV != 'none' }
-      }
-      steps {
-        withVault([vaultSecrets: [
-          [path: 'secret/jenkins/dockerhub', secretValues: [
-            [envVar: 'DOCKER_USER', vaultKey: 'username'],
-            [envVar: 'DOCKER_PASS', vaultKey: 'password']
-          ]]
-        ]]) {
-          sh """
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
-          """
+    post {
+        success {
+            echo "Pipeline SUCCESS for ${BRANCH_NAME}"
         }
-      }
+        failure {
+            echo "Pipeline FAILED for ${BRANCH_NAME}"
+        }
     }
-  }
-
-  post {
-    success {
-      echo "Pipeline SUCCESS for ${BRANCH_NAME}"
-    }
-    failure {
-      echo "Pipeline FAILED for ${BRANCH_NAME}"
-    }
-  }
 }
 
