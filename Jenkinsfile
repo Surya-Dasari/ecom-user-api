@@ -42,25 +42,35 @@ pipeline {
     /* =========================
        PUBLISH ARTIFACT TO NEXUS
        ========================= */
-    stage('Publish Artifact to Nexus') {
-      when {
-        expression { env.TARGET_ENV != 'none' }
-      }
-      steps {
-        withVault([vaultSecrets: [
-          [path: 'secret/jenkins/nexus', secretValues: [
-            [envVar: 'NEXUS_USER', vaultKey: 'username'],
-            [envVar: 'NEXUS_PASS', vaultKey: 'password']
-          ]]
-        ]]) {
-          sh """
-            mvn deploy \
-              -Dnexus.username=$NEXUS_USER \
-              -Dnexus.password=$NEXUS_PASS
-          """
-        }
-      }
+stage('Publish Artifact to Nexus') {
+  when {
+    expression { env.TARGET_ENV != 'none' }
+  }
+  steps {
+    withVault([vaultSecrets: [
+      [path: 'secret/jenkins/nexus', secretValues: [
+        [envVar: 'NEXUS_USER', vaultKey: 'username'],
+        [envVar: 'NEXUS_PASS', vaultKey: 'password']
+      ]]
+    ]]) {
+      sh '''
+        cat > settings.xml <<EOF
+        <settings>
+          <servers>
+            <server>
+              <id>nexus-releases</id>
+              <username>${NEXUS_USER}</username>
+              <password>${NEXUS_PASS}</password>
+            </server>
+          </servers>
+        </settings>
+        EOF
+
+        mvn deploy -s settings.xml
+      '''
     }
+  }
+}
 
     /* ======================================
        DOCKER BUILD (ARTIFACT PULLED FROM NEXUS)
