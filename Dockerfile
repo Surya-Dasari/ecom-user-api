@@ -10,12 +10,9 @@ ARG VERSION
 
 WORKDIR /app
 
-RUN curl -fL \
-    -u ${NEXUS_USER}:${NEXUS_PASS} \
-    -o app.jar \
-    ${NEXUS_URL}/repository/${NEXUS_REPO}/com/ecom/user/${ARTIFACT_ID}/${VERSION}/${ARTIFACT_ID}-${VERSION}.jar
-
-RUN jar tf app.jar | head -5
+RUN curl -f -u ${NEXUS_USER}:${NEXUS_PASS} \
+  -o app.jar \
+  ${NEXUS_URL}/repository/${NEXUS_REPO}/$(echo ${GROUP_ID} | tr '.' '/')/${ARTIFACT_ID}/${VERSION}/${ARTIFACT_ID}-${VERSION}.jar
 
 EXPOSE 8080
 
