@@ -6,7 +6,7 @@ pipeline {
         IMAGE_NAME = "suryadasari/ecom-user-api"
         IMAGE_TAG  = "${BRANCH_NAME}-${GIT_COMMIT.take(7)}"
 
-        NEXUS_URL  = "http://host.docker.internal:8081"
+        NEXUS_URL  = "http://localhost:8081"
         NEXUS_REPO = "ecom-maven-releases"
         GROUP_ID   = "com.ecom.user"
         VERSION    = "1.0.0"
@@ -36,7 +36,21 @@ pipeline {
                         [envVar: 'NEXUS_PASS', vaultKey: 'password']
                     ]
                 ]]]) {
-                    sh 'mvn deploy'
+                    sh '''
+cat > settings.xml <<EOF
+<settings>
+  <servers>
+    <server>
+      <id>nexus-releases</id>
+      <username>${NEXUS_USER}</username>
+      <password>${NEXUS_PASS}</password>
+    </server>
+  </servers>
+</settings>
+EOF
+
+mvn deploy -s settings.xml
+'''
                 }
             }
         }
@@ -52,16 +66,16 @@ pipeline {
                     ]
                 ]]]) {
                     sh '''
-                      docker build \
-                        --build-arg NEXUS_URL=${NEXUS_URL} \
-                        --build-arg NEXUS_REPO=${NEXUS_REPO} \
-                        --build-arg NEXUS_USER=$NEXUS_USER \
-                        --build-arg NEXUS_PASS=$NEXUS_PASS \
-                        --build-arg GROUP_ID=${GROUP_ID} \
-                        --build-arg ARTIFACT_ID=${APP_NAME} \
-                        --build-arg VERSION=${VERSION} \
-                        -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                    '''
+docker build \
+  --build-arg NEXUS_URL=${NEXUS_URL} \
+  --build-arg NEXUS_REPO=${NEXUS_REPO} \
+  --build-arg NEXUS_USER=${NEXUS_USER} \
+  --build-arg NEXUS_PASS=${NEXUS_PASS} \
+  --build-arg GROUP_ID=${GROUP_ID} \
+  --build-arg ARTIFACT_ID=${APP_NAME} \
+  --build-arg VERSION=${VERSION} \
+  -t ${IMAGE_NAME}:${IMAGE_TAG} .
+'''
                 }
             }
         }
@@ -77,9 +91,9 @@ pipeline {
                     ]
                 ]]]) {
                     sh '''
-                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                      docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                    '''
+echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+docker push ${IMAGE_NAME}:${IMAGE_TAG}
+'''
                 }
             }
         }
@@ -94,4 +108,3 @@ pipeline {
         }
     }
 }
-
