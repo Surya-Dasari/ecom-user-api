@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_NAME   = "ecom-user-api"
-        IMAGE_NAME = "suryadasari/ecom-user-api"
+        IMAGE_NAME = "suryadasari31/ecom-user-api"
         IMAGE_TAG  = "${BRANCH_NAME}-${GIT_COMMIT.take(7)}"
 
         NEXUS_URL = "http://host.docker.internal:8081"
