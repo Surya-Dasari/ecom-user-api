@@ -6,7 +6,7 @@ pipeline {
         IMAGE_NAME = "suryadasari/ecom-user-api"
         IMAGE_TAG  = "${BRANCH_NAME}-${GIT_COMMIT.take(7)}"
 
-        NEXUS_URL  = "http://localhost:8081"
+        NEXUS_URL = "http://host.docker.internal:8081"
         NEXUS_REPO = "ecom-maven-releases"
         GROUP_ID   = "com.ecom.user"
         VERSION    = "1.0.0"
