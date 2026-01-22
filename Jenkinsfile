@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     APP_NAME      = 'ecom-user-api'
-    NEXUS_URL     = 'http://localhost:8081'
+    NEXUS_URL     = 'http://nexus:8081'
     NEXUS_REPO    = 'ecom-maven-releases'
     DOCKER_IMAGE  = 'suryadasari/ecom-user-api'
   }
