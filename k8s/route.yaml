@@ -1,0 +1,13 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ecom-user-api
+spec:
+  to:
+    kind: Service
+    name: ecom-user-api
+  port:
+    targetPort: 80
+  tls:
+    termination: edge
+

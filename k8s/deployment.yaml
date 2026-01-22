@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecom-user-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ecom-user-api
+  template:
+    metadata:
+      labels:
+        app: ecom-user-api
+    spec:
+      containers:
+      - name: ecom-user-api
+        image: suryadasari31/ecom-user-api:develop-7c1dde6
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+
