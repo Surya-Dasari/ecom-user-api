@@ -10,7 +10,7 @@ ARG VERSION
 
 WORKDIR /app
 
-RUN curl -f -u ${NEXUS_USER}:${NEXUS_PASS} \
+RUN curl -f -L -u ${NEXUS_USER}:${NEXUS_PASS} \
   -o app.jar \
   ${NEXUS_URL}/repository/${NEXUS_REPO}/$(echo ${GROUP_ID} | tr '.' '/')/${ARTIFACT_ID}/${VERSION}/${ARTIFACT_ID}-${VERSION}.jar
 
